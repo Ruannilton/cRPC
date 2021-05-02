@@ -7,7 +7,6 @@ void rpc_cllbck(rpc_server *serv, rpc_payload *payload, SOCKET client)
 
     if (payload_match_function(payload, "resolve_name"))
     {
-        printf("Match: resolve_name\n");
         char *resolved = resolve_name(data);
         size_t response_size = 0;
         char *response = create_payload_stream("resolve_name", resolved, strlen(resolved), &response_size);
@@ -20,9 +19,13 @@ void rpc_cllbck(rpc_server *serv, rpc_payload *payload, SOCKET client)
     }
     if (payload_match_function(payload, "sum"))
     {
-        int a = *(int *)data;
-        int b = *(int *)(data + sizeof(int));
-        int res = sum(a, b);
+        struct sum_p
+        {
+            int a;
+            int b;
+        } sum_params = *(struct sum_p *)data;
+
+        int res = sum(sum_params.a, sum_params.b);
         size_t response_size;
         char *response = create_payload_stream("sum", &res, sizeof(int), &response_size);
         if (send(client, response, response_size, 0) < 0)
