@@ -17,3 +17,8 @@ char *resolve_name(char *name)
     resolved = strcpy(resolved, tmp_buffer);
     return resolved;
 }
+
+int sum(int a, int b)
+{
+    return a + b;
+}

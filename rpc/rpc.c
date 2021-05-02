@@ -40,7 +40,6 @@ char *create_payload_stream(const char *fn_name, void *data, size_t data_size, s
     memcpy((void *)((size_t)stream + PAYLOAD_DESC_SIZE), &name_len, PAYLOAD_DESC_SIZE);
     memcpy((void *)((size_t)stream + PAYLOAD_DATA_STRIDE), fn_name, name_len);
     memcpy((void *)((size_t)stream + PAYLOAD_DATA_STRIDE + name_len), data, data_size);
-    printf("payload desc: [%d, %d, %d, %d]\n", PAYLOAD_DESC_SIZE, PAYLOAD_DESC_SIZE, name_len, data_size);
     return stream;
 }
 
@@ -58,6 +57,8 @@ int rpc_server_start(rpc_server *server, size_t buffer_len, int port)
     {
         return WSAGetLastError();
     }
+    server->buffer = (char *)malloc(buffer_len);
+    server->buffer_len = buffer_len;
 
     listen(server->server_socket, 5);
     return 0;
@@ -79,17 +80,20 @@ void rpc_server_run(rpc_server *server, rpc_callback callback)
         }
 
         printf("Connection found!!\n");
+        memset(server->buffer, '\0', server->buffer_len);
+
         int readed_size = recv(client_socket, server->buffer, server->buffer_len, 0);
-        if (readed_size > 0)
+        if (readed_size != SOCKET_ERROR)
         {
-            printf("Receive payload: %d\n", readed_size);
+            printf("Receive %d bytes\n", readed_size);
             rpc_payload payload = parse_payload(server->buffer, readed_size);
             callback(server, &payload, client_socket);
         }
         else
         {
-            printf("No data sent\n");
+            printf("ERROR [%d]: No data received\n", WSAGetLastError());
         }
+
         closesocket(client_socket);
     }
 }

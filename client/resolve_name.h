@@ -7,4 +7,5 @@
 
 char *resolve_name(char *name);
 
+int sum(int a, int b);
 #endif

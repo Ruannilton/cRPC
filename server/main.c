@@ -1,59 +1,45 @@
+#include "../rpc/rpc.h"
 #include "resolve_name.h"
 
-#include <winsock2.h>
+void rpc_cllbck(rpc_server *serv, rpc_payload *payload, SOCKET client)
+{
+    char *data = payload_get_data(payload);
 
-#define PORT 5000
-#define ADDRESS "127.0.0.1"
+    if (payload_match_function(payload, "resolve_name"))
+    {
+        printf("Match: resolve_name\n");
+        char *resolved = resolve_name(data);
+        size_t response_size = 0;
+        char *response = create_payload_stream("resolve_name", resolved, strlen(resolved), &response_size);
+        if (send(client, response, response_size, 0) < 0)
+        {
+            printf("FAILED TO SEND DATA TO CLIENT\n");
+        }
+        free(resolved);
+        free(response);
+    }
+    if (payload_match_function(payload, "sum"))
+    {
+        int a = *(int *)data;
+        int b = *(int *)(data + sizeof(int));
+        int res = sum(a, b);
+        size_t response_size;
+        char *response = create_payload_stream("sum", &res, sizeof(int), &response_size);
+        if (send(client, response, response_size, 0) < 0)
+        {
+            printf("FAILED TO SEND DATA TO CLIENT\n");
+        }
+        free(response);
+    }
+}
 
 int main()
 {
-    struct WSAData wsa;
-    WSAStartup(MAKEWORD(2, 0), &wsa);
-
-    struct sockaddr_in server_addr = {
-        .sin_family = AF_INET,
-        .sin_addr.S_un = INADDR_ANY,
-        .sin_port = htons(PORT)};
-
-    SOCKET server_socket = socket(AF_INET, SOCK_STREAM, 0);
-
-    if (bind(server_socket, (struct sockaddr *)&server_addr, sizeof server_addr) == SOCKET_ERROR)
-    {
-        printf("[%d] Failed to bind socket\n", WSAGetLastError());
-    }
-    listen(server_socket, 5);
-
-    SOCKET client_socket;
-    struct sockaddr_in client_addr;
-    int client_size;
-    char buffer[257];
-    while (1)
-    {
-        if ((client_socket = accept(server_socket, (struct sockaddr *)&client_addr, &client_size)) != INVALID_SOCKET)
-        {
-            printf("Socket Connected\n");
-
-            int readed_size = recv(client_socket, buffer, 256 * sizeof(char), 0);
-            if (readed_size > 0)
-            {
-                char *name_resolved = resolve_name(buffer);
-                buffer[256] = '\0';
-                printf("READED %d BYTES FROM CLIENT: %s\n", readed_size, buffer);
-                printf("SENT TO CLIENT: %s\n", name_resolved);
-                size_t str_len = strlen(name_resolved);
-                if (send(client_socket, name_resolved, str_len, 0) < 0)
-                {
-                    printf("FAILED TO SEND DATA TO CLIENT\n");
-                }
-                free(name_resolved);
-            }
-            closesocket(client_socket);
-            printf("Socket Closed\n");
-        }
-    }
-
-    closesocket(server_socket);
-    WSACleanup();
-
+    rpc_server server;
+    rpc_server_start(&server, 128, 7000);
+    printf("Server started!\n");
+    rpc_server_run(&server, rpc_cllbck);
+    rpc_server_close(&server);
+    printf("Server closed\n");
     return 0;
 }

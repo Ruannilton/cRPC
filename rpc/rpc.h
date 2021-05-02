@@ -25,14 +25,6 @@ struct rpc_server
     SOCKET server_socket;
 };
 
-// typedef struct rpc_client rpc_client;
-// struct rpc_client
-// {
-//     char *buffer;
-//     size_t buffer_len;
-//     SOCKET client_socket;
-// };
-
 typedef void (*rpc_callback)(rpc_server *, rpc_payload *, SOCKET);
 
 int rpc_server_start(rpc_server *server, size_t buffer_len, int port);

@@ -1,19 +1,19 @@
 #include "resolve_name.h"
 
 #include "../rpc/rpc.h"
-#define PORT "5000"
+
+#define PORT "7000"
 #define ADDRESS "127.0.0.1"
 
 char *resolve_name(char *name)
 {
-    char buffer[1024];
+    char buffer[64];
     char *resolved = 0;
     size_t buffer_len = sizeof(buffer);
     SOCKET client_socket = rpc_connect_server(ADDRESS, PORT);
 
     if (client_socket != INVALID_SOCKET)
     {
-        printf("Connected to server at %s:%s\n", ADDRESS, PORT);
         size_t stream_size = 0;
         size_t name_len = strlen(name);
         int size_readed = 0;
@@ -22,21 +22,21 @@ char *resolve_name(char *name)
 
         if (send(client_socket, payload_stream, stream_size, 0) >= 0)
         {
-            printf("Sent %d bytes\n", stream_size);
-
             if ((size_readed = recv(client_socket, buffer, buffer_len, 0)) > 0)
             {
                 rpc_payload payload = parse_payload(buffer, size_readed);
-                void *data = payload_get_data(&payload);
                 if (payload_match_function(&payload, "resolve_name"))
                 {
-                    resolved = malloc(size_readed);
-                    resolved = strcpy(resolved, data);
+                    void *data = payload_get_data(&payload);
+
+                    resolved = malloc(payload.data_size + 1);
+                    resolved = strncpy(resolved, data, payload.data_size);
+                    resolved[payload.data_size] = '\0';
                 }
             }
             else
             {
-                printf("No response\n");
+                return NULL;
             }
         }
 
@@ -45,7 +45,42 @@ char *resolve_name(char *name)
     }
     else
     {
-        printf("Not connected\n");
+        return NULL;
     }
     return resolved;
+}
+
+int sum(int a, int b)
+{
+    char buffer[64];
+    size_t buffer_len = 64;
+    SOCKET client_socket = rpc_connect_server(ADDRESS, PORT);
+    if (client_socket != INVALID_SOCKET)
+    {
+        size_t stream_size = 0;
+        struct
+        {
+            int a;
+            int b;
+        } sum_params;
+        sum_params.a = a;
+        sum_params.b = b;
+
+        char *payload_stream = create_payload_stream("sum", &sum_params, sizeof sum_params, &stream_size);
+
+        if (send(client_socket, payload_stream, stream_size, 0) >= 0)
+        {
+            int size_readed = 0;
+            if ((size_readed = recv(client_socket, buffer, buffer_len, 0)) > 0)
+            {
+                rpc_payload payload = parse_payload(buffer, size_readed);
+                if (payload_match_function(&payload, "sum"))
+                {
+                    int data = *(int *)payload_get_data(&payload);
+                    return data;
+                }
+            }
+        }
+    }
+    return 0;
 }

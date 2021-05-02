@@ -13,6 +13,8 @@ int main(int argc, char *argv[])
         printf("Resolve name: %s\n", res);
         free(res);
     }
+    int s = sum(5, 6);
+    printf("Sum: %d\n", s);
     int d;
     printf("Press to exit...");
     getchar();
