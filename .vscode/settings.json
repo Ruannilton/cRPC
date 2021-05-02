@@ -2,6 +2,7 @@
     "files.associations": {
         "stdio.h": "c",
         "resolve_name.h": "c",
-        "ws2tcpip.h": "c"
+        "ws2tcpip.h": "c",
+        "rpc.h": "c"
     }
 }

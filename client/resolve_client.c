@@ -1,91 +1,51 @@
 #include "resolve_name.h"
 
-#include <winsock2.h>
-#include <ws2tcpip.h>
-
+#include "../rpc/rpc.h"
 #define PORT "5000"
 #define ADDRESS "127.0.0.1"
 
-void inisock()
-{
-    struct WSAData wsa;
-    if (WSAStartup(MAKEWORD(2, 0), &wsa) != 0)
-    {
-        printf("Failed to start\n");
-    }
-}
-
-void endsock()
-{
-    WSACleanup();
-}
-
-void __stdcall freeaddrinfo(struct addrinfo *pAddrInfo);
-INT __stdcall getaddrinfo(const char *pNodeName, const char *pServiceName, const struct addrinfo *pHints, struct addrinfo **ppResult);
-
 char *resolve_name(char *name)
 {
-    struct addrinfo *result = 0, *ptr = 0, hints;
-    ZeroMemory(&hints, sizeof hints);
-    hints.ai_family = AF_UNSPEC;
-    hints.ai_socktype = SOCK_STREAM;
-    hints.ai_protocol = IPPROTO_TCP;
-
-    if (getaddrinfo(ADDRESS, PORT, &hints, &result) != 0)
-    {
-        printf("[%d] Failed to get addrinfo\n", WSAGetLastError());
-    }
-
-    char buffer[257];
+    char buffer[1024];
     char *resolved = 0;
+    size_t buffer_len = sizeof(buffer);
+    SOCKET client_socket = rpc_connect_server(ADDRESS, PORT);
 
-    SOCKET client_socket = INVALID_SOCKET;
-
-    for (ptr = result; ptr != NULL; ptr = ptr->ai_next)
+    if (client_socket != INVALID_SOCKET)
     {
-        client_socket = socket(ptr->ai_family, ptr->ai_socktype, ptr->ai_protocol);
-
-        if (client_socket == INVALID_SOCKET)
-        {
-            printf("[%d] Failed to create socket\n", WSAGetLastError());
-            return 0;
-        }
-
-        if ((connect(client_socket, ptr->ai_addr, (int)ptr->ai_addrlen)) == SOCKET_ERROR)
-        {
-            closesocket(client_socket);
-            client_socket = INVALID_SOCKET;
-            continue;
-        }
-
-        break;
-    }
-
-    freeaddrinfo(result);
-
-    if (send(client_socket, name, strlen(name), 0) >= 0)
-    {
+        printf("Connected to server at %s:%s\n", ADDRESS, PORT);
+        size_t stream_size = 0;
+        size_t name_len = strlen(name);
         int size_readed = 0;
-        if ((size_readed = recv(client_socket, buffer, 256 * sizeof(char), 0)) > 0)
-        {
-            buffer[256] = '\0';
-            if (size_readed > 0)
-            {
 
-                resolved = malloc(size_readed);
-                resolved = strcpy(resolved, buffer);
+        char *payload_stream = create_payload_stream("resolve_name", name, name_len, &stream_size);
+
+        if (send(client_socket, payload_stream, stream_size, 0) >= 0)
+        {
+            printf("Sent %d bytes\n", stream_size);
+
+            if ((size_readed = recv(client_socket, buffer, buffer_len, 0)) > 0)
+            {
+                rpc_payload payload = parse_payload(buffer, size_readed);
+                void *data = payload_get_data(&payload);
+                if (payload_match_function(&payload, "resolve_name"))
+                {
+                    resolved = malloc(size_readed);
+                    resolved = strcpy(resolved, data);
+                }
             }
             else
             {
                 printf("No response\n");
             }
         }
-        else
-        {
-            printf("No response\n");
-        }
+
+        free(payload_stream);
+        rpc_disconnect_server(client_socket);
     }
-    shutdown(client_socket, SD_SEND);
-    closesocket(client_socket);
+    else
+    {
+        printf("Not connected\n");
+    }
     return resolved;
 }
