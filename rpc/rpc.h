@@ -41,7 +41,9 @@ char *create_payload_stream(const char *fn_name, void *data, size_t data_size, s
 void free_payload(rpc_payload *payload);
 
 int rpc_client_send(SOCKET socket, const char *fn_name, char *data, size_t data_size);
-int rpc_client_read(SOCKET socket, const char *fn_name, rpc_payload *out_payload, size_t len);
+int rpc_client_read(SOCKET socket, const char *fn_name, rpc_payload *out_payload);
+
+int rpc_func_stub(SOCKET socket, const char *fn_name, void *in_parameters, void **out_response, size_t param_size);
 
 void __attribute__((constructor)) inisock();
 void __attribute__((destructor)) endsock();

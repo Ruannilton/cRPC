@@ -173,27 +173,65 @@ int rpc_client_send(SOCKET socket, const char *fn_name, char *data, size_t data_
     return -1;
 }
 
-int rpc_client_read(SOCKET socket, const char *fn_name, rpc_payload *out_payload, size_t len)
+int rpc_client_read(SOCKET socket, const char *fn_name, rpc_payload *out_payload)
 {
-    len += 2 * sizeof(int);
     if (socket != INVALID_SOCKET)
     {
-        char *buffer = malloc(len * sizeof(char));
-        int res = recv(socket, buffer, len, 0);
-        if (res > 0)
+        size_t buffer_len = 0;
+        if (recv(socket, (char *)(&buffer_len), sizeof(size_t), 0) > 0)
         {
-            *out_payload = parse_payload(buffer, res);
-            if (payload_match_function(out_payload, fn_name))
+            char *buffer = malloc(buffer_len * sizeof(char));
+
+            int res = -1;
+            if ((res = recv(socket, buffer, buffer_len, 0)) > 0)
             {
-                return res;
+                *out_payload = parse_payload(buffer, res);
+                if (payload_match_function(out_payload, fn_name))
+                {
+
+                    return res;
+                }
+                else
+                {
+                    free(buffer);
+                    return -1;
+                }
             }
             else
             {
-                free(buffer);
-                return -1;
+                printf("Failed to get response\n");
+            }
+            return res;
+        }
+        else
+        {
+            printf("Failed to get size of response\n");
+        }
+    }
+    return -1;
+}
+
+int rpc_func_stub(SOCKET socket, const char *fn_name, void *in_parameters, void **out_response, size_t param_size)
+{
+    if (socket != INVALID_SOCKET)
+    {
+
+        if (rpc_client_send(socket, fn_name, in_parameters, param_size) > 0)
+        {
+            rpc_payload response;
+            int readed = 0;
+            if ((readed = rpc_client_read(socket, fn_name, &response)) > 0)
+            {
+                *out_response = malloc(response.data_size);
+                void *tmp = payload_get_data(&response);
+
+                memcpy(*out_response, tmp, response.data_size);
+                free_payload(&response);
+                rpc_disconnect_server(socket);
+                return response.data_size;
             }
         }
-        return res;
+        rpc_disconnect_server(socket);
     }
     return -1;
 }

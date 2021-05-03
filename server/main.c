@@ -8,11 +8,18 @@ void rpc_cllbck(rpc_server *serv, rpc_payload *payload, SOCKET client)
     if (payload_match_function(payload, "resolve_name"))
     {
         char *resolved = resolve_name(data);
-        size_t response_size = 0;
+        size_t response_size;
         char *response = create_payload_stream("resolve_name", resolved, strlen(resolved), &response_size);
-        if (send(client, response, response_size, 0) < 0)
+        if (send(client, (char *)&response_size, sizeof(response_size), 0) > 0)
         {
-            printf("FAILED TO SEND DATA TO CLIENT\n");
+            if (send(client, response, (size_t)response_size, 0) < 0)
+            {
+                printf("[%d] FAILED TO SEND DATA TO CLIENT\n", WSAGetLastError());
+            }
+        }
+        else
+        {
+            printf("[%d] FAILED TO SEND DATA SIZE TO CLIENT\n", WSAGetLastError());
         }
         free(resolved);
         free(response);
@@ -27,10 +34,19 @@ void rpc_cllbck(rpc_server *serv, rpc_payload *payload, SOCKET client)
 
         int res = sum(sum_params.a, sum_params.b);
         size_t response_size;
+
         char *response = create_payload_stream("sum", &res, sizeof(int), &response_size);
-        if (send(client, response, response_size, 0) < 0)
+
+        if (send(client, (char *)&response_size, sizeof(response_size), 0) > 0)
         {
-            printf("FAILED TO SEND DATA TO CLIENT\n");
+            if (send(client, response, (size_t)response_size, 0) < 0)
+            {
+                printf("[%d] FAILED TO SEND DATA TO CLIENT\n", WSAGetLastError());
+            }
+        }
+        else
+        {
+            printf("[%d] FAILED TO SEND DATA SIZE TO CLIENT\n", WSAGetLastError());
         }
         free(response);
     }

@@ -10,24 +10,12 @@ char *resolve_name(char *name)
 
     SOCKET client_socket = rpc_connect_server(ADDRESS, PORT);
 
-    if (client_socket != INVALID_SOCKET)
+    char *response = 0;
+    int response_size = 0;
+    if ((response_size = rpc_func_stub(client_socket, "resolve_name", name, (void **)(&response), strlen(name))) > 0)
     {
-
-        if (rpc_client_send(client_socket, "resolve_name", name, strlen(name)) > 0)
-        {
-            rpc_payload response;
-            if (rpc_client_read(client_socket, "resolve_name", &response, 64) > 0)
-            {
-                void *data = payload_get_data(&response);
-                char *resolved = malloc(response.data_size + 1);
-                resolved = strncpy(resolved, data, response.data_size);
-                resolved[response.data_size] = '\0';
-                free_payload(&response);
-                rpc_disconnect_server(client_socket);
-                return resolved;
-            }
-        }
-        rpc_disconnect_server(client_socket);
+        response[response_size] = '\0';
+        return (char *)response;
     }
 
     return NULL;
@@ -35,27 +23,20 @@ char *resolve_name(char *name)
 
 int sum(int a, int b)
 {
-    SOCKET client_socket = rpc_connect_server(ADDRESS, PORT);
-    if (client_socket != INVALID_SOCKET)
+    struct sum_params
     {
-        struct sum_params
-        {
-            int a;
-            int b;
-        } params = (struct sum_params){.a = a, .b = b};
+        int a;
+        int b;
+    } params = (struct sum_params){.a = a, .b = b};
 
-        if (rpc_client_send(client_socket, "sum", (char *)(&params), sizeof(struct sum_params)) > 0)
-        {
-            rpc_payload response;
-            if (rpc_client_read(client_socket, "sum", &response, sizeof(int)) > 0)
-            {
-                int data = *(int *)payload_get_data(&response);
-                free_payload(&response);
-                rpc_disconnect_server(client_socket);
-                return data;
-            }
-        }
-        rpc_disconnect_server(client_socket);
+    SOCKET client_socket = rpc_connect_server(ADDRESS, PORT);
+
+    void *response = 0;
+    if (rpc_func_stub(client_socket, "sum", (&params), &response, sizeof(struct sum_params)) > 0)
+    {
+        int sum_r = *(int *)response;
+        free(response);
+        return sum_r;
     }
     return 0;
 }
