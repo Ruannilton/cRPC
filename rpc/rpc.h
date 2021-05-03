@@ -38,6 +38,10 @@ bool payload_match_function(rpc_payload *p, const char *fn_name);
 void *payload_get_data(rpc_payload *p);
 rpc_payload parse_payload(char *stream, size_t stream_size);
 char *create_payload_stream(const char *fn_name, void *data, size_t data_size, size_t *out_stream_size);
+void free_payload(rpc_payload *payload);
+
+int rpc_client_send(SOCKET socket, const char *fn_name, char *data, size_t data_size);
+int rpc_client_read(SOCKET socket, const char *fn_name, rpc_payload *out_payload, size_t len);
 
 void __attribute__((constructor)) inisock();
 void __attribute__((destructor)) endsock();

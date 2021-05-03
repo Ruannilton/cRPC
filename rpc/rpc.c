@@ -27,6 +27,11 @@ rpc_payload parse_payload(char *stream, size_t stream_size)
     return p;
 }
 
+void free_payload(rpc_payload *payload)
+{
+    free((void *)(payload->stream - PAYLOAD_DATA_STRIDE));
+}
+
 char *create_payload_stream(const char *fn_name, void *data, size_t data_size, size_t *out_stream_size)
 {
     //[data_size,name_len,name,data]
@@ -153,6 +158,44 @@ void rpc_disconnect_server(SOCKET skt)
 {
     shutdown(skt, SD_SEND);
     closesocket(skt);
+}
+
+int rpc_client_send(SOCKET socket, const char *fn_name, char *data, size_t data_size)
+{
+    if (socket != INVALID_SOCKET)
+    {
+        size_t payload_size = 0;
+        char *payload_stream = create_payload_stream(fn_name, data, data_size, &payload_size);
+        int res = send(socket, payload_stream, payload_size, 0);
+        free(payload_stream);
+        return res;
+    }
+    return -1;
+}
+
+int rpc_client_read(SOCKET socket, const char *fn_name, rpc_payload *out_payload, size_t len)
+{
+    len += 2 * sizeof(int);
+    if (socket != INVALID_SOCKET)
+    {
+        char *buffer = malloc(len * sizeof(char));
+        int res = recv(socket, buffer, len, 0);
+        if (res > 0)
+        {
+            *out_payload = parse_payload(buffer, res);
+            if (payload_match_function(out_payload, fn_name))
+            {
+                return res;
+            }
+            else
+            {
+                free(buffer);
+                return -1;
+            }
+        }
+        return res;
+    }
+    return -1;
 }
 
 void inisock()
